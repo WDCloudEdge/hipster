@@ -23,6 +23,7 @@ If you need to upgrade the version of gradle then run
 From `src/adservice/`, run:
 
 ```
-docker build ./
+docker build --platform=amd64 -t habor.production.horsecoder.com/hipster/hipster-adservice:1.0.0 .
+docker push  habor.production.horsecoder.com/hipster/hipster-adservice:1.0.0
 ```
 
