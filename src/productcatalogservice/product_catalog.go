@@ -16,6 +16,8 @@ package main
 
 import (
 	"context"
+	"github.com/minio/minio-go/v7"
+	mylog "log"
 	"strings"
 	"time"
 
@@ -39,12 +41,20 @@ func (p *productCatalog) Watch(req *healthpb.HealthCheckRequest, ws healthpb.Hea
 
 func (p *productCatalog) ListProducts(context.Context, *pb.Empty) (*pb.ListProductsResponse, error) {
 	time.Sleep(extraLatency)
-
+	minioClient := InitMinioClient()
+	for _, product := range p.parseCatalog() {
+		_, err := minioClient.GetObject(context.Background(), "hipster", product.Name, minio.GetObjectOptions{})
+		if err != nil {
+			mylog.Print(err.Error())
+		}
+	}
 	return &pb.ListProductsResponse{Products: p.parseCatalog()}, nil
 }
 
 func (p *productCatalog) GetProduct(ctx context.Context, req *pb.GetProductRequest) (*pb.Product, error) {
 	time.Sleep(extraLatency)
+
+	minioClient := InitMinioClient()
 
 	var found *pb.Product
 	for i := 0; i < len(p.parseCatalog()); i++ {
@@ -52,7 +62,12 @@ func (p *productCatalog) GetProduct(ctx context.Context, req *pb.GetProductReque
 			found = p.parseCatalog()[i]
 		}
 	}
-
+	if found != nil {
+		_, err := minioClient.GetObject(context.Background(), "hipster", found.Name, minio.GetObjectOptions{})
+		if err != nil {
+			mylog.Print(err.Error())
+		}
+	}
 	if found == nil {
 		return nil, status.Errorf(codes.NotFound, "no product with ID %s", req.Id)
 	}
@@ -61,12 +76,16 @@ func (p *productCatalog) GetProduct(ctx context.Context, req *pb.GetProductReque
 
 func (p *productCatalog) SearchProducts(ctx context.Context, req *pb.SearchProductsRequest) (*pb.SearchProductsResponse, error) {
 	time.Sleep(extraLatency)
-
+	minioClient := InitMinioClient()
 	var ps []*pb.Product
 	for _, product := range p.parseCatalog() {
 		if strings.Contains(strings.ToLower(product.Name), strings.ToLower(req.Query)) ||
 			strings.Contains(strings.ToLower(product.Description), strings.ToLower(req.Query)) {
 			ps = append(ps, product)
+			_, err := minioClient.GetObject(context.Background(), "hipster", product.Name, minio.GetObjectOptions{})
+			if err != nil {
+				mylog.Print(err.Error())
+			}
 		}
 	}
 
