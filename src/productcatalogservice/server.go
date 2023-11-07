@@ -17,21 +17,24 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
+	"github.com/minio/minio-go/v7"
+	mylog "log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
 
-	pb "github.com/GoogleCloudPlatform/microservices-demo/src/productcatalogservice/genproto"
-	"google.golang.org/grpc/credentials/insecure"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
-
 	"cloud.google.com/go/profiler"
+	pb "github.com/GoogleCloudPlatform/microservices-demo/src/productcatalogservice/genproto"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -40,6 +43,8 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 var (
@@ -84,6 +89,34 @@ func main() {
 	}
 
 	flag.Parse()
+
+	minioClient := InitMinioClient()
+
+	imgfiles, _ := filepath.Glob("./img/products/*")
+	imagesfiles, _ := filepath.Glob("./images/*")
+
+	contentType := "multipart/form-data"
+	err := minioClient.MakeBucket(context.Background(), "hipster", minio.MakeBucketOptions{Region: "cn-north-1", ObjectLocking: true})
+	if err != nil {
+		mylog.Print(err.Error())
+	}
+	for _, fp := range imagesfiles {
+		//fpath := filepath.Join(filePath, fp)
+		fileInfo, err := os.Stat(fp)
+		if err != nil {
+			mylog.Print(err.Error())
+		}
+		_, err = minioClient.FPutObject(context.Background(), "hipster", fileInfo.Name(), fp, minio.PutObjectOptions{ContentType: contentType})
+		if err != nil {
+			mylog.Print(err.Error())
+		}
+	}
+
+	for _, fp := range imgfiles {
+		//fpath := filepath.Join(filePath, fp)
+		fileInfo, _ := os.Stat(fp)
+		minioClient.FPutObject(context.Background(), "hipster", fileInfo.Name(), fp, minio.PutObjectOptions{ContentType: contentType})
+	}
 
 	// set injected latency
 	if s := os.Getenv("EXTRA_LATENCY"); s != "" {
@@ -235,4 +268,26 @@ func readCatalogFile(catalog *pb.ListProductsResponse) error {
 
 	log.Info("successfully parsed product catalog json")
 	return nil
+}
+
+func InitMinioClient() *minio.Client {
+	// 基本的配置信息
+	//endpoint := "47.99.200.176:9091"
+	//accessKeyID := "LpTe3m5EHWcUtuyutB9Z"
+	//secretAccessKey := "xuwbet-cegtY8-qefxih"
+	endpoint := "myminio-hl.horsecoder-minio.svc.cluster.local:9000"
+	accessKeyID := "KbbZXndsJvtcxYaTxxEn"
+	secretAccessKey := "LmiuWWyebHKSyjqAG5BVlpfYL0uxyOSVYm279Cqk"
+	//初始化一个minio客户端对象
+	minioClient, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure: true,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	})
+	if err != nil {
+		mylog.Print(err.Error())
+	}
+	return minioClient
 }
