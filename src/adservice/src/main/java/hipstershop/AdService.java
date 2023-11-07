@@ -104,7 +104,7 @@ public final class AdService {
                     if (random < 0.3) {
                         allAds.add(Ad.newBuilder()
                             .setRedirectUrl("")
-                            .setText(HttpUtils.requestGet("http://edge-gateway.horsecoder-test.svc.cluster.local:31808/api/sys/edge/gateway/llm/description/dubbo/qwen"))
+                            .setText(HttpUtils.requestGet("http://edge-gateway-svc.horsecoder-test.svc.cluster.local:31808/api/sys/edge/gateway/llm/description/dubbo/qwen"))
                             .build());
                     }
                 } else {
@@ -140,7 +140,7 @@ public final class AdService {
         }
         ads.add(Ad.newBuilder()
             .setRedirectUrl("")
-            .setText(HttpUtils.requestGet("http://edge-gateway.horsecoder-test.svc.cluster.local:31808/api/sys/edge/gateway/llm/description/dubbo/qwen"))
+            .setText(HttpUtils.requestGet("http://edge-gateway-svc.horsecoder-test.svc.cluster.local:31808/api/sys/edge/gateway/llm/description/dubbo/qwen"))
             .build());
         return ads;
     }
